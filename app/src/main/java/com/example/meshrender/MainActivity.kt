@@ -2,15 +2,27 @@ package com.example.meshrender
 
 import android.Manifest
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.ImageFormat
+import android.graphics.Matrix
+import android.graphics.Rect
 import android.graphics.SurfaceTexture
+import android.graphics.YuvImage
+import android.media.Image as MediaImage
 import android.opengl.GLES11Ext
 import android.opengl.GLES20
 import android.os.Bundle
+import android.util.Log
 import android.view.TextureView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -20,6 +32,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.meshrender.ui.theme.MeshRenderTheme
@@ -27,10 +41,12 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.ar.core.Session
+import com.google.ar.core.exceptions.NotYetAvailableException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.io.ByteArrayOutputStream
 
 
 class MainActivity : ComponentActivity() {
@@ -42,7 +58,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             MeshRenderTheme {
                 val context = LocalContext.current
-                val renderer = remember { ARRenderer(context, teapotPosition) }
+                val rgbBitmap = remember {mutableStateOf<Bitmap?>(null)}
+                val onRGB: (Bitmap) -> Unit = {bitmap -> rgbBitmap.value = bitmap}
+                val renderer = remember { ARRenderer(context, teapotPosition, onRGB) }
 
                 CameraPermissionsWrapper {
                     AndroidView(factory = {
@@ -63,6 +81,13 @@ class MainActivity : ComponentActivity() {
                     {
                         Text("Toggle Slider")
                     }
+                }
+
+                rgbBitmap.value?.let {bitmap ->
+                    Image(
+                        bitmap.asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize())
                 }
             }
         }
@@ -129,9 +154,36 @@ fun CameraPermissionsWrapper(content: @Composable () -> Unit)
 }
 
 
+fun toBitmap(image: MediaImage) : Bitmap
+{
+    val yBuffer = image.planes[0].buffer
+    val uBuffer = image.planes[1].buffer
+    val vBuffer = image.planes[2].buffer
+
+    val ySize = yBuffer.remaining()
+    val uSize = uBuffer.remaining()
+    val vSize = vBuffer.remaining()
+
+    val nv21 = ByteArray(ySize + uSize + vSize)
+
+    yBuffer.get(nv21, 0, ySize)
+    vBuffer.get(nv21, ySize, vSize)
+    uBuffer.get(nv21, ySize + vSize, uSize)
+
+    val yuvImage = YuvImage(nv21, ImageFormat.NV21, image.width, image.height, null)
+    val out = ByteArrayOutputStream()
+    yuvImage.compressToJpeg(Rect(0, 0, image.width, image.height), 100, out)
+    val jpegBytes = out.toByteArray()
+
+    return BitmapFactory.decodeByteArray(jpegBytes, 0, jpegBytes.size)
+
+}
+
+
 class ARRenderer(
     private val context: Context,
     private val teapotPosition: FloatArray,
+    private val onRGB: (Bitmap) -> Unit
 ) : TextureView.SurfaceTextureListener {
     private lateinit var session: Session
     private lateinit var eglHelper: EGLContextHelper
@@ -172,10 +224,27 @@ class ARRenderer(
             )
             teapot.init()
 
-
+            val rotation = Matrix()
+            rotation.postRotate(90f)
             while (true)
             {
                 val frame = session.update()
+                try {
+                    frame.acquireCameraImage().use {rgbImage->
+                        val bitmap = toBitmap(rgbImage)
+                        val rotatedBitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, rotation, true)
+                        onRGB(rotatedBitmap)
+                    }
+                }
+                catch(e: NotYetAvailableException)
+                {
+                    Log.e("CameraImage", "Image not yet available")
+                }
+                catch(e: Exception)
+                {
+                    Log.e("CameraImage", "Unexpected error: ${e.message}")
+                }
+
                 val pose = frame.camera.pose
                 val viewMatrix = FloatArray(16)
                 frame.camera.getViewMatrix(viewMatrix, 0)
