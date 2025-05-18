@@ -2,7 +2,6 @@ package com.example.meshrender
 
 import android.Manifest
 import android.content.Context
-import android.graphics.Camera
 import android.graphics.SurfaceTexture
 import android.opengl.GLES11Ext
 import android.opengl.GLES20
@@ -12,9 +11,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,9 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.meshrender.ui.theme.MeshRenderTheme
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -57,9 +52,17 @@ class MainActivity : ComponentActivity() {
                     })
                 }
 
-                val isSliderVisible by remember{mutableStateOf(false)}
-                if (isSliderVisible) {
-                    MeshSlider(teapotPosition)
+                var isSliderVisible by remember{mutableStateOf(false)}
+                Column {
+                    if (isSliderVisible) {
+                        MeshSlider(teapotPosition)
+                    }
+                    OutlinedButton(
+                        onClick = { isSliderVisible = !isSliderVisible },
+                    )
+                    {
+                        Text("Toggle Slider")
+                    }
                 }
             }
         }
@@ -69,39 +72,36 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MeshSlider(meshPosition: FloatArray)
 {
-    Column {
-        var xSlider by remember { mutableStateOf(0f) }
-        var ySlider by remember { mutableStateOf(0f) }
-        var zSlider by remember { mutableStateOf(0f) }
-        Slider(
-            value = xSlider,
-            onValueChange = {
-                meshPosition[0] = it
-                xSlider = it
-            },
-            valueRange = -10f..10f
-        )
-        Text(text = "X: ${xSlider.toString()}")
-        Slider(
-            value = ySlider,
-            onValueChange = {
-                meshPosition[1] = it
-                ySlider = it
-            },
-            valueRange = -5f..5f
-        )
-        Text(text = "Y: ${ySlider.toString()}")
-        Slider(
-            value = zSlider,
-            onValueChange = {
-                meshPosition[2] = it
-                zSlider = it
-            },
-            valueRange = -10f..10f
-        )
-        Text(text = "Z: ${zSlider.toString()}")
-    }
-
+    var xSlider by remember { mutableStateOf(0f) }
+    var ySlider by remember { mutableStateOf(0f) }
+    var zSlider by remember { mutableStateOf(0f) }
+    Slider(
+        value = xSlider,
+        onValueChange = {
+            meshPosition[0] = it
+            xSlider = it
+        },
+        valueRange = -10f..10f
+    )
+    Text(text = "X: ${xSlider.toString()}")
+    Slider(
+        value = ySlider,
+        onValueChange = {
+            meshPosition[1] = it
+            ySlider = it
+        },
+        valueRange = -5f..5f
+    )
+    Text(text = "Y: ${ySlider.toString()}")
+    Slider(
+        value = zSlider,
+        onValueChange = {
+            meshPosition[2] = it
+            zSlider = it
+        },
+        valueRange = -10f..10f
+    )
+    Text(text = "Z: ${zSlider.toString()}")
 }
 
 @OptIn(ExperimentalPermissionsApi::class)
