@@ -11,13 +11,18 @@ import android.view.TextureView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
@@ -34,13 +39,15 @@ import kotlinx.coroutines.launch
 
 
 class MainActivity : ComponentActivity() {
+    private val teapotPosition = floatArrayOf(0f, 0f, -1f)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             MeshRenderTheme {
                 val context = LocalContext.current
-                val renderer = remember { ARRenderer(context) }
+                val renderer = remember { ARRenderer(context, teapotPosition) }
 
                 CameraPermissionsWrapper {
                     AndroidView(factory = {
@@ -49,9 +56,52 @@ class MainActivity : ComponentActivity() {
                         }
                     })
                 }
+
+                val isSliderVisible by remember{mutableStateOf(false)}
+                if (isSliderVisible) {
+                    MeshSlider(teapotPosition)
+                }
             }
         }
     }
+}
+
+@Composable
+fun MeshSlider(meshPosition: FloatArray)
+{
+    Column {
+        var xSlider by remember { mutableStateOf(0f) }
+        var ySlider by remember { mutableStateOf(0f) }
+        var zSlider by remember { mutableStateOf(0f) }
+        Slider(
+            value = xSlider,
+            onValueChange = {
+                meshPosition[0] = it
+                xSlider = it
+            },
+            valueRange = -10f..10f
+        )
+        Text(text = "X: ${xSlider.toString()}")
+        Slider(
+            value = ySlider,
+            onValueChange = {
+                meshPosition[1] = it
+                ySlider = it
+            },
+            valueRange = -5f..5f
+        )
+        Text(text = "Y: ${ySlider.toString()}")
+        Slider(
+            value = zSlider,
+            onValueChange = {
+                meshPosition[2] = it
+                zSlider = it
+            },
+            valueRange = -10f..10f
+        )
+        Text(text = "Z: ${zSlider.toString()}")
+    }
+
 }
 
 @OptIn(ExperimentalPermissionsApi::class)
@@ -81,6 +131,7 @@ fun CameraPermissionsWrapper(content: @Composable () -> Unit)
 
 class ARRenderer(
     private val context: Context,
+    private val teapotPosition: FloatArray,
 ) : TextureView.SurfaceTextureListener {
     private lateinit var session: Session
     private lateinit var eglHelper: EGLContextHelper
@@ -134,7 +185,7 @@ class ARRenderer(
                 GLES20.glClearColor(0f, 0f, 0f, 0f)
                 GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT or GLES20.GL_DEPTH_BUFFER_BIT)
 
-                teapot.draw(projectionMatrix, viewMatrix)
+                teapot.draw(projectionMatrix, viewMatrix, teapotPosition)
 
                 eglHelper.swapBuffers()
                 delay(16L)

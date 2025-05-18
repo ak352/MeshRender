@@ -173,18 +173,22 @@ class Mesh(
         )
 
     }
-    fun draw(projectionMatrix: FloatArray, viewMatrix: FloatArray) {
+    fun draw(projectionMatrix: FloatArray, viewMatrix: FloatArray, teapotPosition: FloatArray) {
 
         //1. Prepare model,view and projection matrices
         val modelMatrix = FloatArray(16)
         Matrix.setIdentityM(modelMatrix, 0)
         Matrix.scaleM(modelMatrix, 0, 0.05f, 0.05f, 0.05f)
+        Log.d("GLES", "teapot position ${teapotPosition[0]}, ${teapotPosition[1]}, ${teapotPosition[2]}")
         Matrix.translateM(
             modelMatrix,
             0,
-            0.5f,
-            -0.5f,
-            -3.5f
+            teapotPosition[0],
+            teapotPosition[1],
+            teapotPosition[2]
+//            0.5f,
+//            -0.5f,
+//            -3.5f
         ) //todo- assumed location of teapot in world space anchor
 
 
