@@ -235,9 +235,32 @@ class ARRenderer(
 
             val rotation = Matrix()
             rotation.postRotate(90f)
+
+//            delay(5000L)
+            val useAnchor = true
+            var anchor: Anchor? = null
+
             while (true)
             {
                 val frame = session.update()
+                if (frame.camera.trackingState != TrackingState.TRACKING)
+                {
+                    Log.d("ARCore", "Not tracking yet")
+                    delay(100L)
+                    continue
+                }
+                if (useAnchor && anchor == null)
+                {
+                    anchor = session.createAnchor(Pose(floatArrayOf(0f, 0f, 0f), floatArrayOf(0f, 0f, 0f, 1f)))
+                }
+                if (useAnchor && anchor?.trackingState != TrackingState.TRACKING)
+                {
+                    Log.d("ARCore", "Not tracking anchor yet")
+                    delay(100L)
+                    continue
+                }
+
+
                 try {
                     frame.acquireCameraImage().use {rgbImage->
                         val bitmap = toBitmap(rgbImage)
@@ -259,11 +282,18 @@ class ARRenderer(
                 frame.camera.getViewMatrix(viewMatrix, 0)
                 val projectionMatrix = FloatArray(16)
                 frame.camera.getProjectionMatrix(projectionMatrix, 0, 0.1f, 10f)
+                Log.d("ARRenderer", "projectionMatrix ${projectionMatrix.joinToString(", ")}")
 
                 GLES20.glClearColor(0f, 0f, 0f, 0f)
                 GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT or GLES20.GL_DEPTH_BUFFER_BIT)
 
-                teapot.draw(projectionMatrix, viewMatrix, teapotPosition)
+                val modelMatrix = FloatArray(16)
+                if (useAnchor) {
+                    val anchorPose = anchor?.pose
+                    anchorPose?.toMatrix(modelMatrix, 0)
+                }
+
+                teapot.draw(useAnchor, modelMatrix, projectionMatrix, viewMatrix, teapotPosition)
 
                 eglHelper.swapBuffers()
                 delay(16L)

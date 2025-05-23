@@ -179,23 +179,25 @@ class Mesh(
         GLES20.glViewport(0, 0, width, height)
 
     }
-    fun draw(projectionMatrix: FloatArray, viewMatrix: FloatArray, teapotPosition: FloatArray) {
+    fun draw(useAnchor: Boolean, modelMatrix: FloatArray, projectionMatrix: FloatArray, viewMatrix: FloatArray, teapotPosition: FloatArray) {
 
-        //1. Prepare model,view and projection matrices
-        val modelMatrix = FloatArray(16)
-        Matrix.setIdentityM(modelMatrix, 0)
-        Matrix.scaleM(modelMatrix, 0, 0.05f, 0.05f, 0.05f)
-        Log.d("GLES", "teapot position ${teapotPosition[0]}, ${teapotPosition[1]}, ${teapotPosition[2]}")
+        //1. Prepare model,view and projection matrices (note order is post-multiplied)
+//        val modelMatrix = FloatArray(16)
+        if (!useAnchor) {
+            Matrix.setIdentityM(modelMatrix, 0)
+        }
+//        Log.d("GLES", "teapot position ${teapotPosition[0]}, ${teapotPosition[1]}, ${teapotPosition[2]}")
         Matrix.translateM(
             modelMatrix,
             0,
             teapotPosition[0],
             teapotPosition[1],
             teapotPosition[2]
-//            0.5f,
-//            -0.5f,
-//            -3.5f
+////            0.5f,
+////            -0.5f,
+////            -3.5f
         ) //todo- assumed location of teapot in world space anchor
+        Matrix.scaleM(modelMatrix, 0, 0.05f, 0.05f, 0.05f)
 
 
         val modelViewMatrix = FloatArray(16)
