@@ -231,7 +231,7 @@ class ARRenderer(
                 context.assets.open("vertex_shader.glsl"),
                 context.assets.open("fragment_shader.glsl")
             )
-            teapot.init()
+            teapot.init(width, height)
 
             val rotation = Matrix()
             rotation.postRotate(90f)
