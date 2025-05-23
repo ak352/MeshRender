@@ -40,7 +40,10 @@ import com.example.meshrender.ui.theme.MeshRenderTheme
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
+import com.google.ar.core.Anchor
+import com.google.ar.core.Pose
 import com.google.ar.core.Session
+import com.google.ar.core.TrackingState
 import com.google.ar.core.exceptions.NotYetAvailableException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -62,9 +65,19 @@ class MainActivity : ComponentActivity() {
                 val onRGB: (Bitmap) -> Unit = {bitmap -> rgbBitmap.value = bitmap}
                 val renderer = remember { ARRenderer(context, teapotPosition, onRGB) }
 
+                rgbBitmap.value?.let {bitmap ->
+                    Image(
+                        bitmap.asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+
+                        )
+                }
+
                 CameraPermissionsWrapper {
                     AndroidView(factory = {
                         TextureView(it).apply {
+                            isOpaque = false
                             surfaceTextureListener = renderer
                         }
                     })
@@ -83,12 +96,6 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                rgbBitmap.value?.let {bitmap ->
-                    Image(
-                        bitmap.asImageBitmap(),
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize())
-                }
             }
         }
     }
@@ -195,12 +202,12 @@ class ARRenderer(
             hasInitialized = true
             eglHelper = EGLContextHelper()
             eglHelper.init(surface)
-            startRenderLoop()
+            startRenderLoop(width, height)
         }
 
     }
 
-    private fun startRenderLoop()
+    private fun startRenderLoop(width: Int, height: Int)
     {
         CoroutineScope(Dispatchers.Default).launch {
             eglHelper.makeCurrent()
@@ -215,6 +222,8 @@ class ARRenderer(
 
             session = Session(context)
             session.setCameraTextureName(cameraTextureId)
+//            session.setDisplayGeometry(0, 480, 480) //TODO: hardcoded
+            session.setDisplayGeometry(0, width, height)
             session.resume()
 
             teapot = Mesh(

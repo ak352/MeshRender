@@ -95,7 +95,7 @@ class Mesh(
         return MeshData(verts.toFloatArray(), inds.toShortArray(), normals.toFloatArray())
     }
 
-    fun init() {
+    fun init(width: Int, height: Int) {
         //Compile and link shader programs
         assert(EGL14.eglGetCurrentContext() != EGL14.EGL_NO_CONTEXT)
         val vertexShader = compileShader(GLES20.GL_VERTEX_SHADER,
@@ -172,6 +172,12 @@ class Mesh(
             GLES20.GL_STATIC_DRAW
         )
 
+        GLES20.glEnable(GLES20.GL_BLEND)
+        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA)
+
+//        GLES20.glViewport(0, 400, 1440, 1440) //TODO- hardcoded
+        GLES20.glViewport(0, 0, width, height)
+
     }
     fun draw(projectionMatrix: FloatArray, viewMatrix: FloatArray, teapotPosition: FloatArray) {
 
@@ -211,11 +217,12 @@ class Mesh(
         val mvpMatrix = FloatArray(16)
         Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelViewMatrix, 0)
 
+        GLES20.glUseProgram(shaderProgram)
+
         val mvpMatrixLocation = GLES20.glGetUniformLocation(shaderProgram, "u_MVPMatrix")
         GLES20.glUniformMatrix4fv(mvpMatrixLocation, 1, false, mvpMatrix, 0)
         assert(mvpMatrixLocation != -1)
 
-        GLES20.glUseProgram(shaderProgram)
 
         GLES20.glEnable(GLES20.GL_DEPTH_TEST)
         GLES20.glDisable(GLES20.GL_CULL_FACE)
