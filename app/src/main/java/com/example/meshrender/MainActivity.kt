@@ -265,8 +265,11 @@ class ARRenderer(
                     frame.acquireCameraImage().use {rgbImage->
                         val bitmap = toBitmap(rgbImage)
                         val rotatedBitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, rotation, true)
+                        Log.d("ARRenderer", "rotatedBitmap width ${rotatedBitmap.width} height ${rotatedBitmap.height}")
+
                         onRGB(rotatedBitmap)
                     }
+
                 }
                 catch(e: NotYetAvailableException)
                 {

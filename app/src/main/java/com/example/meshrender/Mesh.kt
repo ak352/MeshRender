@@ -201,7 +201,14 @@ class Mesh(
 
 
         val modelViewMatrix = FloatArray(16)
+        Log.d("Mesh", "modelMatrix ${modelMatrix.joinToString(", ")}")
+        Log.d("Mesh", "viewMatrix ${viewMatrix.joinToString(", ")}")
         Matrix.multiplyMM(modelViewMatrix, 0, viewMatrix, 0, modelMatrix, 0)
+
+        val origin = floatArrayOf(0f, 0f, 0f, 1f)
+        val cameraSpacePosition = FloatArray(4)
+        Matrix.multiplyMV(cameraSpacePosition, 0, modelViewMatrix, 0, origin, 0)
+        Log.d("Mesh", "world origin in camera coordinates (${cameraSpacePosition.joinToString(", ")})")
 
         val tempMatrix = FloatArray(16)
         Matrix.invertM(tempMatrix, 0, modelViewMatrix, 0)
