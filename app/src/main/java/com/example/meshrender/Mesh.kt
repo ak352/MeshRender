@@ -58,6 +58,7 @@ class Mesh(
     private var vertexBufferId: Int = 0
     private var indexBufferId: Int = 0
     private var normalsBufferId: Int = 0
+    private var textureId: Int = 0
     private var mesh: MeshData = MeshData(FloatArray(1), ShortArray(1), FloatArray(1))
 
     fun meshFromOBJ(): MeshData {
@@ -148,6 +149,16 @@ class Mesh(
         indexBufferId = buffers[1]
         normalsBufferId = buffers[2]
 
+        val textureIds = IntArray(1)
+        GLES20.glGenTextures(1, textureIds, 0)
+        textureId = textureIds[0]
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureId)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
+
+
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vertexBufferId)
         GLES20.glBufferData(
             GLES20.GL_ARRAY_BUFFER,
@@ -179,7 +190,9 @@ class Mesh(
         GLES20.glViewport(0, 0, width, height)
 
     }
-    fun draw(useAnchor: Boolean, modelMatrix: FloatArray, projectionMatrix: FloatArray, viewMatrix: FloatArray, teapotPosition: FloatArray) {
+    fun draw(useAnchor: Boolean, modelMatrix: FloatArray, projectionMatrix: FloatArray,
+             viewMatrix: FloatArray, teapotPosition: FloatArray, depthMap: ByteBuffer?,
+             depthMapSize: IntArray?) {
 
         //1. Prepare model,view and projection matrices (note order is post-multiplied)
 //        val modelMatrix = FloatArray(16)
@@ -232,6 +245,8 @@ class Mesh(
         GLES20.glUniformMatrix4fv(mvpMatrixLocation, 1, false, mvpMatrix, 0)
         assert(mvpMatrixLocation != -1)
 
+        val mvMatrixLocation = GLES20.glGetUniformLocation(shaderProgram, "u_MVMatrix")
+        GLES20.glUniformMatrix4fv(mvMatrixLocation, 1, false, modelViewMatrix, 0)
 
         GLES20.glEnable(GLES20.GL_DEPTH_TEST)
         GLES20.glDisable(GLES20.GL_CULL_FACE)
@@ -266,6 +281,23 @@ class Mesh(
 
         val normalMatrixLocation = GLES20.glGetUniformLocation(shaderProgram, "u_NormalMatrix")
         GLES20.glUniformMatrix3fv(normalMatrixLocation, 1, false, normalMatrix, 0)
+
+        //attributes for occlusion rendering
+        if (depthMap != null && depthMapSize != null) {
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureId)
+            Log.d("Mesh", "depth map elements ${depthMap[0]}, ${depthMap[160*90/2]}")//160x90
+//            val byteBufferDepth = ByteBuffer.wrap(depthMap)
+//            GLES20.glTexImage2D(
+//                GLES20.GL_TEXTURE_2D, 0, GLES20.GL_LUMINANCE_ALPHA, depthMapSize[0],
+//                depthMapSize[1], 0, GLES20.GL_LUMINANCE_ALPHA, GLES20.GL_UNSIGNED_BYTE, byteBufferDepth)
+            GLES20.glTexImage2D(
+                GLES20.GL_TEXTURE_2D, 0, GLES20.GL_LUMINANCE_ALPHA, depthMapSize[0],
+                depthMapSize[1], 0, GLES20.GL_LUMINANCE_ALPHA, GLES20.GL_UNSIGNED_BYTE, depthMap)
+            val depthTextureLocation = GLES20.glGetUniformLocation(shaderProgram, "u_DepthTexture")
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureId)
+            GLES20.glUniform1i(depthTextureLocation, 0)
+        }
 
         //5. Draw the object
         GLES20.glDrawElements(GLES20.GL_TRIANGLES, mesh.indices.size, GLES20.GL_UNSIGNED_SHORT, 0)

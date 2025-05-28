@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Color
 import android.graphics.ImageFormat
 import android.graphics.Matrix
 import android.graphics.Rect
@@ -41,6 +42,7 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.ar.core.Anchor
+import com.google.ar.core.Config
 import com.google.ar.core.Pose
 import com.google.ar.core.Session
 import com.google.ar.core.TrackingState
@@ -50,6 +52,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 
 class MainActivity : ComponentActivity() {
@@ -186,6 +190,41 @@ fun toBitmap(image: MediaImage) : Bitmap
 
 }
 
+val colormapJet = IntArray(256) { i->
+    val r = if (i < 128) 0 else (i-128) * 2
+    val g = if (i < 128) i*2 else 255 - (i-128)*2
+    val b = if (i > 128) 0 else (128-i) * 2
+    Color.rgb(r.coerceIn(0, 255), g.coerceIn(0, 255), b.coerceIn(0, 255))
+}
+
+fun depthToBitmap(image: android.media.Image, depthVizRange: Int) : Bitmap
+{
+    val buffer = image.planes[0].buffer
+    buffer.rewind()
+    val bitmap = Bitmap.createBitmap(image.width, image.height, Bitmap.Config.ARGB_8888)
+    val rowStride = image.planes[0].rowStride
+    val rowBuffer = ByteArray(rowStride)
+
+    for (y in 0 until image.height)
+    {
+        buffer.position(y * rowStride)
+        buffer.get(rowBuffer, 0, rowStride)
+        for (x in 0 until image.width)
+        {
+            val low = rowBuffer[2*x].toInt() and 0xFF
+            val high = rowBuffer[2*x+1].toInt() and 0xFF
+            val depthMm = (high shl 8) or low
+            val depthClamped = depthMm.coerceIn(0, depthVizRange)
+            val gray = (255* (depthClamped / depthVizRange.toFloat())).toInt()
+            val color = colormapJet[gray] // GraphicsColor.rgb(gray, gray, gray)
+            bitmap.setPixel(x, y, color)
+        }
+    }
+
+    return bitmap
+}
+
+
 
 class ARRenderer(
     private val context: Context,
@@ -221,6 +260,13 @@ class ARRenderer(
             GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
 
             session = Session(context)
+            val config = Config(session)
+            if (session.isDepthModeSupported(Config.DepthMode.AUTOMATIC)) {
+                config.depthMode = Config.DepthMode.AUTOMATIC
+            }
+            session.configure(config)
+
+
             session.setCameraTextureName(cameraTextureId)
 //            session.setDisplayGeometry(0, 480, 480) //TODO: hardcoded
             session.setDisplayGeometry(0, width, height)
@@ -239,6 +285,9 @@ class ARRenderer(
 //            delay(5000L)
             val useAnchor = true
             var anchor: Anchor? = null
+
+            var depthMap: ByteBuffer? = null
+            var depthMapSize: IntArray? = null
 
             while (true)
             {
@@ -265,9 +314,27 @@ class ARRenderer(
                     frame.acquireCameraImage().use {rgbImage->
                         val bitmap = toBitmap(rgbImage)
                         val rotatedBitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, rotation, true)
-                        Log.d("ARRenderer", "rotatedBitmap width ${rotatedBitmap.width} height ${rotatedBitmap.height}")
+                        Log.d("ARRenderer", "rotatedBitmap width ${rotatedBitmap.width} height ${rotatedBitmap.height}") //480x640
 
                         onRGB(rotatedBitmap)
+                    }
+
+                    frame.acquireDepthImage16Bits().use {depthImage->
+
+//                        val bitmap = depthToBitmap(depthImage, 10000)
+//                        val rotatedBitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, rotation, true)
+//                        onRGB(rotatedBitmap)
+
+                        if (depthMap == null){
+                            depthMap = ByteBuffer.allocateDirect(depthImage.planes[0].buffer.capacity())
+                            depthMapSize = intArrayOf(depthImage.width, depthImage.height)
+                        }
+                        depthMap?.rewind()
+                        val srcBuffer = depthImage.planes[0].buffer
+                        srcBuffer.rewind()
+                        depthMap?.put(srcBuffer)
+                        depthMap?.rewind()
+                        depthImage.close()
                     }
 
                 }
@@ -296,7 +363,8 @@ class ARRenderer(
                     anchorPose?.toMatrix(modelMatrix, 0)
                 }
 
-                teapot.draw(useAnchor, modelMatrix, projectionMatrix, viewMatrix, teapotPosition)
+                teapot.draw(useAnchor, modelMatrix, projectionMatrix, viewMatrix, teapotPosition,
+                    depthMap, depthMapSize)
 
                 eglHelper.swapBuffers()
                 delay(16L)
