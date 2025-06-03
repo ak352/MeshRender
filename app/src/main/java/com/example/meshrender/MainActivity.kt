@@ -268,7 +268,6 @@ class ARRenderer(
 
 
             session.setCameraTextureName(cameraTextureId)
-//            session.setDisplayGeometry(0, 480, 480) //TODO: hardcoded
             session.setDisplayGeometry(0, width, height)
             session.resume()
 
