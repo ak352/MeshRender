@@ -1,3 +1,4 @@
+# Real-time Occlusion Rendering
 This demo shows how to use ARCore's Depth API for occlusion rendering in real-time. A 3D teapot mesh is rendered such that it appears behind real-world geometry using single-frame depth estimation from the ARCore SDK.
 
 - Depth is **not integrated across frames** — this is a minimal, focused implementation
