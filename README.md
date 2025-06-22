@@ -5,7 +5,7 @@ This demo shows how to use ARCore's Depth API for occlusion rendering in real-ti
 - The purpose is to demonstrate clean occlusion without relying on plane detection or complex scene understanding
 
 ## Demo
-[Video on Youtube](https://youtu.be/dDRSnuwQQxk)
+[Video on project page](https://ak352.github.io/#meshrender-demo)
 
 ## Lessons Learned
 
